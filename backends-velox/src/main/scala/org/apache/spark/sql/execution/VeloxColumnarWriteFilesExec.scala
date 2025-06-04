@@ -43,6 +43,7 @@ import org.apache.hadoop.fs.FileAlreadyExistsException
 import java.util.Date
 
 import scala.collection.mutable
+import scala.collection.mutable.Buffer
 
 // Velox write files metrics start
 //
@@ -93,6 +94,8 @@ class VeloxColumnarWriteFilesRDD(
     jobTrackerID: String)
   extends RDD[WriterCommitMessage](prev) {
 
+  private val fileNames: Buffer[String] = Buffer()
+
   private def collectNativeWriteFilesMetrics(cb: ColumnarBatch): Option[WriteTaskResult] = {
     // Currently, the cb contains three columns: row, fragments, and context.
     // The first row in the row column contains the number of written numRows.
@@ -125,11 +128,14 @@ class VeloxColumnarWriteFilesRDD(
       if (partitionFragment != "") {
         updatedPartitions += partitionFragment
         val tmpOutputPath = outputPath + "/" + partitionFragment + "/" + targetFileName
+        fileNames += (partitionFragment + "/" + targetFileName)
         val customOutputPath = description.customPartitionLocations.get(
           PartitioningUtils.parsePathFragment(partitionFragment))
         if (customOutputPath.isDefined) {
           addedAbsPathFiles(tmpOutputPath) = customOutputPath.get + "/" + targetFileName
         }
+      } else {
+        fileNames += targetFileName
       }
     }
 
@@ -220,7 +226,7 @@ class VeloxColumnarWriteFilesRDD(
       })(
         catchBlock = {
           // If there is an error, abort the task
-          commitProtocol.abortTask(writePath)
+          commitProtocol.abortTask(writePath, fileNames.toSeq)
           logError(s"Job ${commitProtocol.getJobId} aborted.")
         }
       )
