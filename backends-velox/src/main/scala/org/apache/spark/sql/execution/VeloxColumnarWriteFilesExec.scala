@@ -134,8 +134,6 @@ class VeloxColumnarWriteFilesRDD(
         if (customOutputPath.isDefined) {
           addedAbsPathFiles(tmpOutputPath) = customOutputPath.get + "/" + targetFileName
         }
-      } else {
-        fileNames += targetFileName
       }
     }
 
