@@ -102,7 +102,7 @@ class SparkWriteFilesCommitProtocol(
     // Only delete the files created by this task.
     for (fileName <- fileNames) {
       val tmpPath = new Path(writePath + "/" + fileName)
-        logError(s"Deleting temporary file: $tmpPath")
+      logError(s"Deleting temporary file: $tmpPath")
       tmpPath.getFileSystem(taskAttemptContext.getConfiguration).delete(tmpPath, false)
     }
   }

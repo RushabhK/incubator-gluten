@@ -129,7 +129,7 @@ class VeloxColumnarWriteFilesRDD(
         updatedPartitions += partitionFragment
         val tmpOutputPath = outputPath + "/" + partitionFragment + "/" + targetFileName
         fileNames += (partitionFragment + "/" + targetFileName)
-        logError("Velox write files tmp output path: " + tmpOutputPath)
+        logError(s"Velox write files tmp output path: $tmpOutputPath")
         val customOutputPath = description.customPartitionLocations.get(
           PartitioningUtils.parsePathFragment(partitionFragment))
         if (customOutputPath.isDefined) {
@@ -225,7 +225,8 @@ class VeloxColumnarWriteFilesRDD(
       })(
         catchBlock = {
           // If there is an error, abort the task
-          logError("Commit failed, aborting task. Deleting staging files " + fileNames.mkString(", "))
+          logError(
+            s"Commit failed, aborting task. Deleting staging files ${fileNames.mkString(", ")}")
           commitProtocol.abortTask(writePath, fileNames.toSeq)
           logError(s"Job ${commitProtocol.getJobId} aborted.")
         }
