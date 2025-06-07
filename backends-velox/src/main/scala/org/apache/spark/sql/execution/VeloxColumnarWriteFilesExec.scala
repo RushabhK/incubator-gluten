@@ -96,7 +96,9 @@ class VeloxColumnarWriteFilesRDD(
 
   private val fileNames: Buffer[String] = Buffer()
 
-  private def collectNativeWriteFilesMetrics(cb: ColumnarBatch): Option[WriteTaskResult] = {
+  private def collectNativeWriteFilesMetrics(
+      cb: ColumnarBatch,
+      localFileNames: mutable.ArrayBuffer[String]): Option[WriteTaskResult] = {
     // Currently, the cb contains three columns: row, fragments, and context.
     // The first row in the row column contains the number of written numRows.
     // The fragments column contains detailed information about the file writes.
@@ -124,11 +126,22 @@ class VeloxColumnarWriteFilesRDD(
 
       // part1=1/part2=1
       val partitionFragment = metrics.name
+      logError(s"Velox write files partition fragment: $partitionFragment")
       // Write a partitioned table
       if (partitionFragment != "") {
         updatedPartitions += partitionFragment
         val tmpOutputPath = outputPath + "/" + partitionFragment + "/" + targetFileName
-        fileNames += (partitionFragment + "/" + targetFileName)
+        val filename = partitionFragment + "/" + targetFileName
+        logError(s"Adding file: $filename to filenames")
+        fileNames += filename
+        localFileNames += filename
+
+        logError(
+          s"Current filenames size: ${fileNames.size}, filenames: ${fileNames.mkString(",")}")
+
+        logError(
+          s"Current local filenames size: ${localFileNames.size}, " +
+            s"local filenames: ${localFileNames.mkString(",")}")
         logError(s"Velox write files tmp output path: $tmpOutputPath")
         val customOutputPath = description.customPartitionLocations.get(
           PartitioningUtils.parsePathFragment(partitionFragment))
@@ -200,8 +213,9 @@ class VeloxColumnarWriteFilesRDD(
 
     commitProtocol.setupTask()
     val writePath = commitProtocol.newTaskAttemptTempPath()
-    logDebug(s"Velox staging write path: $writePath")
+    logError(s"Velox staging write path: $writePath")
     var writeTaskResult: WriteTaskResult = null
+    val localFileNames = mutable.ArrayBuffer[String]()
     try {
       Utils.tryWithSafeFinallyAndFailureCallbacks(block = {
         BackendsApiManager.getIteratorApiInstance.injectWriteFilesTempPath(writePath, "")
@@ -211,7 +225,8 @@ class VeloxColumnarWriteFilesRDD(
         assert(iter.hasNext)
         val resultColumnarBatch = iter.next()
         assert(resultColumnarBatch != null)
-        val nativeWriteTaskResult = collectNativeWriteFilesMetrics(resultColumnarBatch)
+        val nativeWriteTaskResult =
+          collectNativeWriteFilesMetrics(resultColumnarBatch, localFileNames)
         if (nativeWriteTaskResult.isEmpty) {
           // If we are writing an empty iterator, then velox would do nothing.
           // Here we fallback to use vanilla Spark write files to generate an empty file for
@@ -226,8 +241,12 @@ class VeloxColumnarWriteFilesRDD(
         catchBlock = {
           // If there is an error, abort the task
           logError(
-            s"Commit failed, aborting task. Deleting staging files ${fileNames.mkString(", ")}")
-          commitProtocol.abortTask(writePath, fileNames.toSeq)
+            s"Commit failed, aborting task. fileNames size: ${fileNames.size}" +
+              s"Deleting staging files ${fileNames.mkString(", ")}")
+          logError(
+            s"Commit failed, aborting task. Local filenames size: ${localFileNames.size}, " +
+              s"local filenames: ${localFileNames.mkString(",")}")
+          commitProtocol.abortTask(writePath, fileNames.toSeq, localFileNames.toSeq)
           logError(s"Job ${commitProtocol.getJobId} aborted.")
         }
       )
