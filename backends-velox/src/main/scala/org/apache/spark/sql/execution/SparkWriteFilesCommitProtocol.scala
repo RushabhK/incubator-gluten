@@ -104,8 +104,9 @@ class SparkWriteFilesCommitProtocol(
       instanceId: String): Unit = {
     logError(s"instance: $instanceId, Aborting task attempt: $taskAttemptId")
     committer.abortTask(taskAttemptContext)
-    logError(s"instance: $instanceId, Task attempt aborted, " +
-      s"deleting temporary files at $writePath")
+    logError(
+      s"instance: $instanceId, Task attempt aborted, " +
+        s"deleting temporary files at $writePath")
     logError(
       s"instance: $instanceId, Filenames info: ${fileNames.size} files, " +
         s"file names: ${fileNames.mkString(", ")}")
