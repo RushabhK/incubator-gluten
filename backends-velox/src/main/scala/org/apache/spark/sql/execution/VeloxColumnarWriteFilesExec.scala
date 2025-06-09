@@ -268,6 +268,11 @@ class VeloxColumnarWriteFilesRDD(
           s"Task failed while writing rows to staging path: $writePath, " +
             s"output path: ${description.path}",
           t)
+    } finally {
+      logError(
+        s"Finally block instanceId: $instanceId, " +
+          s"Local filenames size: ${localFileNames.size}, " +
+          s"local filenames: ${localFileNames.mkString(",")}")
     }
 
     assert(writeTaskResult != null)
