@@ -245,16 +245,13 @@ class VeloxColumnarWriteFilesRDD(
       })(
         catchBlock = {
           // If there is an error, abort the task
-          case e: Throwable => {
-            logError(s"catchBlock stack trace: ${e.getStackTrace.mkString("\n")}")
-          }
           logError(
             s"instanceId: $instanceId, " +
-            s"Commit failed, aborting task. fileNames size: ${fileNames.size}" +
+              s"Commit failed, aborting task. fileNames size: ${fileNames.size}" +
               s"Deleting staging files ${fileNames.mkString(", ")}")
           logError(
             s"instanceId: $instanceId, " +
-            s"Commit failed, aborting task. Local filenames size: ${localFileNames.size}, " +
+              s"Commit failed, aborting task. Local filenames size: ${localFileNames.size}, " +
               s"local filenames: ${localFileNames.mkString(",")}")
           logError(s"Error in VeloxColumnarWriteFilesRDD instance: $instanceId")
           commitProtocol.abortTask(writePath, fileNames.toSeq, localFileNames.toSeq, instanceId)
