@@ -114,6 +114,7 @@ class VeloxColumnarWriteFilesRDD(
     val addedAbsPathFiles: mutable.Map[String, String] = mutable.Map[String, String]()
     var numBytes = 0L
     val objectMapper = new ObjectMapper()
+    logError(s"instanceId: $instanceId, iterating over loadedCb inside collectMetrics")
     objectMapper.registerModule(DefaultScalaModule)
     for (i <- 0 until loadedCb.numRows() - 1) {
       val fragments = loadedCb.column(1).getUTF8String(i + 1)
@@ -130,23 +131,24 @@ class VeloxColumnarWriteFilesRDD(
 
       // part1=1/part2=1
       val partitionFragment = metrics.name
-      logError(s"Velox write files partition fragment: $partitionFragment")
+      logError(s"instanceId: $instanceId, Velox write files partition fragment: $partitionFragment")
       // Write a partitioned table
       if (partitionFragment != "") {
         updatedPartitions += partitionFragment
         val tmpOutputPath = outputPath + "/" + partitionFragment + "/" + targetFileName
         val filename = partitionFragment + "/" + targetFileName
-        logError(s"Adding file: $filename to filenames")
+        logError(s"instanceId: $instanceId, Adding file: $filename to filenames")
         fileNames += filename
         localFileNames += filename
 
         logError(
-          s"Current filenames size: ${fileNames.size}, filenames: ${fileNames.mkString(",")}")
+          s"instanceId: $instanceId, " +
+            s"Current filenames size: ${fileNames.size}, filenames: ${fileNames.mkString(",")}")
 
         logError(
-          s"Current local filenames size: ${localFileNames.size}, " +
+          s"instanceId: $instanceId, Current local filenames size: ${localFileNames.size}, " +
             s"local filenames: ${localFileNames.mkString(",")}")
-        logError(s"Velox write files tmp output path: $tmpOutputPath")
+        logError(s"instanceId: $instanceId, Velox write files tmp output path: $tmpOutputPath")
         val customOutputPath = description.customPartitionLocations.get(
           PartitioningUtils.parsePathFragment(partitionFragment))
         if (customOutputPath.isDefined) {
@@ -226,10 +228,13 @@ class VeloxColumnarWriteFilesRDD(
         BackendsApiManager.getIteratorApiInstance.injectWriteFilesTempPath(writePath, "")
 
         // Initialize the native plan
+        logError(s"instanceId: $instanceId, Initializing native plan for write files.")
         val iter = firstParent[ColumnarBatch].iterator(split, context)
         assert(iter.hasNext)
+        logError(s"instanceId: $instanceId, iterator has next")
         val resultColumnarBatch = iter.next()
         assert(resultColumnarBatch != null)
+        logError(s"instanceId: $instanceId, Collecting native write files metrics.")
         val nativeWriteTaskResult =
           collectNativeWriteFilesMetrics(resultColumnarBatch, localFileNames)
         if (nativeWriteTaskResult.isEmpty) {
