@@ -97,18 +97,23 @@ class SparkWriteFilesCommitProtocol(
     }
   }
 
-  def abortTask(writePath: String, fileNames: Seq[String], localFileNames: Seq[String]): Unit = {
-    logError("Aborting task attempt: " + taskAttemptId)
+  def abortTask(
+      writePath: String,
+      fileNames: Seq[String],
+      localFileNames: Seq[String],
+      instanceId: String): Unit = {
+    logError(s"instance: $instanceId, Aborting task attempt: $taskAttemptId")
     committer.abortTask(taskAttemptContext)
-    logError(s"Task attempt aborted, deleting temporary files at $writePath")
-    logError(s"Filenames info: ${fileNames.size} files, file names: ${fileNames.mkString(", ")}")
+    logError(s"instance: $instanceId, Task attempt aborted, deleting temporary files at $writePath")
     logError(
-      s"Deleting local ${localFileNames.size} files, " +
+      s"instance: $instanceId, Filenames info: ${fileNames.size} files, file names: ${fileNames.mkString(", ")}")
+    logError(
+      s"instance: $instanceId, Deleting local ${localFileNames.size} files, " +
         s"local file names: ${localFileNames.mkString(", ")}")
     // Only delete the files created by this task.
     for (fileName <- localFileNames) {
       val tmpPath = new Path(writePath + "/" + fileName)
-      logError(s"Deleting temporary file: $tmpPath")
+      logError(s"instance: $instanceId, Deleting temporary file: $tmpPath")
       tmpPath.getFileSystem(taskAttemptContext.getConfiguration).delete(tmpPath, false)
     }
   }

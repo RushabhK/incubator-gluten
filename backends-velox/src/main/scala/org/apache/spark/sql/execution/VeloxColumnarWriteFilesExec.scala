@@ -96,6 +96,10 @@ class VeloxColumnarWriteFilesRDD(
 
   private val fileNames: Buffer[String] = Buffer()
 
+  // Add a unique ID to each instance
+  private val instanceId = java.util.UUID.randomUUID().toString
+  logError(s"Created VeloxColumnarWriteFilesRDD instance: $instanceId")
+
   private def collectNativeWriteFilesMetrics(
       cb: ColumnarBatch,
       localFileNames: mutable.ArrayBuffer[String]): Option[WriteTaskResult] = {
@@ -209,6 +213,7 @@ class VeloxColumnarWriteFilesRDD(
   }
 
   override def compute(split: Partition, context: TaskContext): Iterator[WriterCommitMessage] = {
+    logError(s"Computing with VeloxColumnarWriteFilesRDD instance: $instanceId")
     val commitProtocol = new SparkWriteFilesCommitProtocol(jobTrackerID, description, committer)
 
     commitProtocol.setupTask()
@@ -240,13 +245,19 @@ class VeloxColumnarWriteFilesRDD(
       })(
         catchBlock = {
           // If there is an error, abort the task
+          case e: Throwable => {
+            logError(s"catchBlock stack trace: ${e.getStackTrace.mkString("\n")}")
+          }
           logError(
+            s"instanceId: $instanceId, " +
             s"Commit failed, aborting task. fileNames size: ${fileNames.size}" +
               s"Deleting staging files ${fileNames.mkString(", ")}")
           logError(
+            s"instanceId: $instanceId, " +
             s"Commit failed, aborting task. Local filenames size: ${localFileNames.size}, " +
               s"local filenames: ${localFileNames.mkString(",")}")
-          commitProtocol.abortTask(writePath, fileNames.toSeq, localFileNames.toSeq)
+          logError(s"Error in VeloxColumnarWriteFilesRDD instance: $instanceId")
+          commitProtocol.abortTask(writePath, fileNames.toSeq, localFileNames.toSeq, instanceId)
           logError(s"Job ${commitProtocol.getJobId} aborted.")
         }
       )
