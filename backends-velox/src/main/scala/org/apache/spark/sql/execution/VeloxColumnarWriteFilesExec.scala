@@ -43,7 +43,6 @@ import org.apache.hadoop.fs.FileAlreadyExistsException
 import java.util.Date
 
 import scala.collection.mutable
-import scala.collection.mutable.Buffer
 
 // Velox write files metrics start
 //
