@@ -94,15 +94,10 @@ class VeloxColumnarWriteFilesRDD(
     jobTrackerID: String)
   extends RDD[WriterCommitMessage](prev) {
 
-  private val fileNames: Buffer[String] = Buffer()
-
-  // Add a unique ID to each instance
-  private val instanceId = java.util.UUID.randomUUID().toString
-  logError(s"Created VeloxColumnarWriteFilesRDD instance: $instanceId")
-
   private def collectNativeWriteFilesMetrics(
       cb: ColumnarBatch,
-      localFileNames: mutable.ArrayBuffer[String]): Option[WriteTaskResult] = {
+      localFileNames: mutable.ArrayBuffer[String],
+      instanceId: String): Option[WriteTaskResult] = {
     // Currently, the cb contains three columns: row, fragments, and context.
     // The first row in the row column contains the number of written numRows.
     // The fragments column contains detailed information about the file writes.
@@ -138,13 +133,7 @@ class VeloxColumnarWriteFilesRDD(
         val tmpOutputPath = outputPath + "/" + partitionFragment + "/" + targetFileName
         val filename = partitionFragment + "/" + targetFileName
         logError(s"instanceId: $instanceId, Adding file: $filename to filenames")
-        fileNames += filename
         localFileNames += filename
-
-        logError(
-          s"instanceId: $instanceId, " +
-            s"Current filenames size: ${fileNames.size}, filenames: ${fileNames.mkString(",")}")
-
         logError(
           s"instanceId: $instanceId, Current local filenames size: ${localFileNames.size}, " +
             s"local filenames: ${localFileNames.mkString(",")}")
@@ -215,6 +204,8 @@ class VeloxColumnarWriteFilesRDD(
   }
 
   override def compute(split: Partition, context: TaskContext): Iterator[WriterCommitMessage] = {
+    // Add a unique ID to each compute call
+    val instanceId = java.util.UUID.randomUUID().toString
     logError(s"Computing with VeloxColumnarWriteFilesRDD instance: $instanceId")
     val commitProtocol = new SparkWriteFilesCommitProtocol(jobTrackerID, description, committer)
 
@@ -236,39 +227,43 @@ class VeloxColumnarWriteFilesRDD(
         assert(resultColumnarBatch != null)
         logError(s"instanceId: $instanceId, Collecting native write files metrics.")
         val nativeWriteTaskResult =
-          collectNativeWriteFilesMetrics(resultColumnarBatch, localFileNames)
+          collectNativeWriteFilesMetrics(resultColumnarBatch, localFileNames, instanceId)
         if (nativeWriteTaskResult.isEmpty) {
           // If we are writing an empty iterator, then velox would do nothing.
           // Here we fallback to use vanilla Spark write files to generate an empty file for
           // metadata only.
+          logError(s"instanceId: $instanceId, ENTERING Empty files writeTaskResult. ")
           writeTaskResult = writeFilesForEmptyIterator(commitProtocol)
+          logError(s"instanceId: $instanceId, Empty files writeTaskResult successful. ")
           // We have done commit task inside `writeFilesForEmptyIterator`.
         } else {
+          logError(s"instanceId: $instanceId, ENTERING Non-empty files writeTaskResult. ")
           writeTaskResult = nativeWriteTaskResult.get
+          logError(s"instanceId: $instanceId, GOT the Non-empty files writeTaskResult. ")
           commitProtocol.commitTask()
+          logError(s"instanceId: $instanceId, Commit task successful.")
         }
       })(
         catchBlock = {
           // If there is an error, abort the task
           logError(
             s"instanceId: $instanceId, " +
-              s"Commit failed, aborting task. fileNames size: ${fileNames.size}" +
-              s"Deleting staging files ${fileNames.mkString(", ")}")
-          logError(
-            s"instanceId: $instanceId, " +
               s"Commit failed, aborting task. Local filenames size: ${localFileNames.size}, " +
               s"local filenames: ${localFileNames.mkString(",")}")
           logError(s"Error in VeloxColumnarWriteFilesRDD instance: $instanceId")
-          commitProtocol.abortTask(writePath, fileNames.toSeq, localFileNames.toSeq, instanceId)
+          commitProtocol.abortTask(writePath, localFileNames.toSeq, instanceId)
           logError(s"Job ${commitProtocol.getJobId} aborted.")
         }
       )
     } catch {
       case e: FetchFailedException =>
+        logError(s"instanceId: $instanceId, Exception in catch FetchFailedException")
         throw e
       case f: FileAlreadyExistsException if SQLConf.get.fastFailFileFormatOutput =>
+        logError(s"instanceId: $instanceId, Exception in catch FileAlreadyExistsException")
         throw new TaskOutputFileAlreadyExistException(f)
       case t: Throwable =>
+        logError(s"instanceId: $instanceId, Exception in catch Throwable")
         throw new SparkException(
           s"Task failed while writing rows to staging path: $writePath, " +
             s"output path: ${description.path}",
