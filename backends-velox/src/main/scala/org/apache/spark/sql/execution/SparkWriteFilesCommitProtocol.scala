@@ -100,21 +100,8 @@ class SparkWriteFilesCommitProtocol(
     }
   }
 
-  def abortTask(writePath: String, localFileNames: Seq[String], instanceId: String): Unit = {
-    logError(s"instance: $instanceId, Aborting task attempt: $taskAttemptId")
+  def abortTask(): Unit = {
     committer.abortTask(taskAttemptContext)
-    logError(
-      s"instance: $instanceId, Task attempt aborted, " +
-        s"deleting temporary files at $writePath")
-    logError(
-      s"instance: $instanceId, Deleting local ${localFileNames.size} files, " +
-        s"local file names: ${localFileNames.mkString(", ")}")
-    // Only delete the files created by this task.
-    for (fileName <- localFileNames) {
-      val tmpPath = new Path(writePath + "/" + fileName)
-      logError(s"instance: $instanceId, Deleting temporary file: $tmpPath")
-      tmpPath.getFileSystem(taskAttemptContext.getConfiguration).delete(tmpPath, false)
-    }
   }
 
   // Copied from `SparkHadoopWriterUtils.createJobID` to be compatible with multi-version

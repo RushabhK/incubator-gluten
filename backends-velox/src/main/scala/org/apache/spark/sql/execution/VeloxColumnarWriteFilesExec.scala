@@ -250,7 +250,7 @@ class VeloxColumnarWriteFilesRDD(
               s"Commit failed, aborting task. Local filenames size: ${localFileNames.size}, " +
               s"local filenames: ${localFileNames.mkString(",")}")
           logError(s"Error in VeloxColumnarWriteFilesRDD instance: $instanceId")
-          commitProtocol.abortTask(writePath, localFileNames.toSeq, instanceId)
+          commitProtocol.abortTask()
           logError(s"Job ${commitProtocol.getJobId} aborted.")
         }
       )
