@@ -81,6 +81,8 @@ class SparkWriteFilesCommitProtocol(
       // For FileOutputCommitter it has its own staging path called "work path".
       case f: FileOutputCommitter =>
         new Path(Option(f.getWorkPath).map(_.toString).getOrElse(description.path))
+      case m: ManifestCommitter =>
+        new Path(Option(m.getWorkPath).map(_.toString).getOrElse(description.path))
       case _ =>
         new Path(description.path)
     }
